@@ -2,7 +2,9 @@
 
 An authenticated, read-only MCP service for Vercel and multiple AI accounts.
 Uses Next.js, Vercel's `mcp-handler`, and the Google Ads REST API.
-**Deploy:** [Short Vercel guide](VERCEL-GUIDE.md).
+**Start here:** [Connect ChatGPT or Claude](QUICKSTART-CHATGPT-CLAUDE.md).
+**Full setup:** [Run locally and connect other AI clients](CLIENT-SETUP.md).
+**Deploy:** [Vercel and OAuth setup](VERCEL-GUIDE.md).
 
 | Tool | Result |
 | --- | --- |
@@ -12,15 +14,17 @@ Uses Next.js, Vercel's `mcp-handler`, and the Google Ads REST API.
 | `worksheet_account_report` | Cost, clicks, impressions, conversions, weighted CTR, CPC and cost/conversion for explicit dates |
 
 No campaign write tools or Google Ads mutation endpoints are exposed.
-This is a custom Vercel implementation. The official Google Python MCP downloaded
-to `upstream/` is an optional local reference, not the Vercel application.
+This is a Node.js/Next.js HTTP server, not a stdio server. GitHub stores the code;
+a running deployment provides the MCP URL. The Python helpers (`run_mcp.py`,
+`verify_mcp.py`, `tools_config.yaml`) refer to a separate official Google MCP
+installation that is not included or installed by `npm ci`. They are not the
+entry points for this application.
 
 ## Continuously updated CSV
 
 Accepts the Budget export's `Account name`, `Customer ID`, `Ad target spend`,
 and optional `Comments` columns. Preamble rows and extra columns are supported.
-The supplied file parsed successfully: 330 unique accounts, 158 numeric budgets.
-Actual client data is not committed to the repository.
+Supply your own CSV; no client data or sample production dataset is committed.
 
 Locally, `CSV_LOCAL_PATH` is reread each call. On Vercel, the service reads a
 private Blob object with cache bypass. Run `npm run csv:upload -- "/path/to/Budget.csv"`
@@ -71,7 +75,8 @@ Neither proves live Google Ads authorization or hosted client integration.
 
 ## Worksheet workflow
 
-Keep the requested periods: August 19–September 17, 2026 and September 1–17, 2026.
+Use the reporting dates requested by the user. The dates below are only an example;
+the server does not impose a default reporting period.
 
 Example prompt:
 
@@ -86,9 +91,8 @@ the source's `avg CTR` before replacing it. Do not combine currencies or substit
 Google Ads conversions for CallRail qualified calls/forms.
 
 The MCP reads data; it does not automatically write Google Sheets. The Budget CSV
-cannot preserve the source workbook's other tabs. The original is view-only with
-copying disabled; its owner must supply a copy or allow copying for a native full
-workbook deliverable. No report has been completed from live Ads data yet.
+cannot preserve a source workbook's other tabs. Live Ads access must be verified
+with your own credentials and a known reporting period.
 
 ## External setup still required
 
