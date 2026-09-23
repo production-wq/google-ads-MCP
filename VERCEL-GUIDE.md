@@ -1,8 +1,11 @@
 # Publish and connect the MCP
 
+For a local walkthrough and exact client commands, see [CLIENT-SETUP.md](CLIENT-SETUP.md).
+
 ## 1. Publish the code
 
-Push this folder to your own **private Git repository**. In Vercel, select
+Use your Git repository (public source code is fine; credentials and client data
+must remain private). In Vercel, select
 **Add New → Project**, import the repository, choose **Next.js** and Node.js 22+,
 then deploy with the default build settings. Secrets, CSVs, `.venv` and `upstream`
 are excluded from Git and deployment. Your endpoint will be:
@@ -79,16 +82,17 @@ or invoke it from your existing export workflow.
 | Client | How |
 | --- | --- |
 | ChatGPT | Enable developer mode if available in your account/workspace. Current documentation puts it under Settings → Security and login. Add an MCP connection under Plugins using the production URL; complete OAuth. |
-| Claude remote connectors | Settings → Connectors → add custom connector, enter the production URL, then complete OAuth. |
+| Claude remote connectors | Customize → Connectors → + → Add custom connector, enter the production URL, then complete OAuth. |
 | Other clients, including Chinese AI applications | Use their remote MCP / Streamable HTTP option with OAuth or a Bearer header. Support depends on the application and network, not the model name. |
 | Stdio-only desktop clients | Use an MCP bridge such as `mcp-remote` pointing at the same URL. |
 
-Common header-capable client configuration (wrapper varies by application):
+Claude Code HTTP configuration (other clients may use a different wrapper):
 
 ```json
 {
   "mcpServers": {
     "google-ads-worksheet": {
+      "type": "http",
       "url": "https://YOUR-PROJECT.vercel.app/api/mcp",
       "headers": { "Authorization": "Bearer YOUR_CLIENT_KEY" }
     }

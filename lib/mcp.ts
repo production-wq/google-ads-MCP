@@ -45,7 +45,7 @@ export const handler = createMcpHandler(server => {
     query: `SELECT name, category, selectable, filterable, sortable, selectable_with, data_type WHERE name = '${args.field}'`,
   })));
   server.registerTool('worksheet_account_report', {
-    description: 'Get cost, conversions and weighted CTR for one account and explicit date range, plus the latest worksheet target. Repeat per account using one CSV version. Existing report periods are 2026-08-19 to 2026-09-17 and 2026-09-01 to 2026-09-17; change only when requested. This reads data; it does not write a worksheet.',
+    description: 'Get cost, conversions and weighted CTR for one account and the date range requested by the user, plus the latest worksheet target. Repeat per account using one CSV version. Resolve relative dates in the account time zone; ask for dates if unspecified. This reads data; it does not write a worksheet.',
     annotations, inputSchema: z.object({ customer_id: id, start_date: z.string(), end_date: z.string(), expected_version: version }),
   }, args => guarded(async () => {
     const data = await loadBudget(); assertVersion(data.version, args.expected_version);
