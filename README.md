@@ -2,7 +2,8 @@
 
 An authenticated, read-only MCP service for Vercel and multiple AI accounts.
 Uses Next.js, Vercel's `mcp-handler`, and the Google Ads REST API.
-**Start here:** [Run locally and connect AI clients](CLIENT-SETUP.md).
+**Start here:** [Connect ChatGPT or Claude](QUICKSTART-CHATGPT-CLAUDE.md).
+**Full setup:** [Run locally and connect other AI clients](CLIENT-SETUP.md).
 **Deploy:** [Vercel and OAuth setup](VERCEL-GUIDE.md).
 
 | Tool | Result |
