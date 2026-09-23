@@ -1,0 +1,14 @@
+.venv/
+upstream/
+.env
+.env.*
+!.env.example
+credentials/
+exports/
+__pycache__/
+node_modules/
+.next/
+.vercel/
+*.tsbuildinfo
+data/
+*.csv

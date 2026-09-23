@@ -1,0 +1,10 @@
+namespaces:
+  customers:
+    enabled_tools:
+      - list_accessible_customers
+  search:
+    enabled_tools:
+      - search
+  metadata:
+    enabled_tools:
+      - get_resource_metadata

@@ -1,0 +1,9 @@
+.venv
+upstream
+.git
+data
+exports
+credentials
+*.csv
+.env*
+tests
