@@ -1,119 +1,126 @@
-# Publish and connect the MCP
+# Publish and configure the company MCP
 
-For a local walkthrough and exact client commands, see [CLIENT-SETUP.md](CLIENT-SETUP.md).
+This deployment is designed for one company Google Ads account and one
+Google Sheet. The server owner completes these steps once. Colleagues then use
+the short [connection guide](COLLEAGUE-CONNECTION-GUIDE.md).
 
-## 1. Publish the code
+## 1. Deploy to Vercel
 
-Use your Git repository (public source code is fine; credentials and client data
-must remain private). In Vercel, select
-**Add New → Project**, import the repository, choose **Next.js** and Node.js 22+,
-then deploy with the default build settings. Secrets, CSVs, `.venv` and `upstream`
-are excluded from Git and deployment. Your endpoint will be:
+Import this repository into Vercel, select the Next.js framework, and use Node.js
+22 or newer. The production MCP URL is:
 
 `https://YOUR-PROJECT.vercel.app/api/mcp`
 
-Alternatively run `npx vercel` from this folder, configure the project, and use
-`npx vercel --prod` for production. Complete login/account setup yourself.
+Set `MCP_RESOURCE_URL` to that exact URL, including `/api/mcp`. Do not enable
+Vercel Deployment Protection for the MCP URL unless the AI client can pass the
+additional Vercel protection check; the application has its own login.
 
-## 2. Configure the data
+## 2. Create durable OAuth storage
 
-Create/connect a **private Blob store** in the Vercel project's Storage tab.
-Add the settings from `.env.example` under Settings → Environment Variables:
+Create an Upstash Redis database and add these Vercel environment variables:
 
-- `MCP_RESOURCE_URL`: your full production MCP URL.
-- `BLOB_READ_WRITE_TOKEN`: private store credential, also used locally for uploads.
-  Connected-store OIDC authentication is an alternative on Vercel itself.
-- `CSV_BLOB_PATH`: `worksheets/budget.csv`.
-- Google Ads client ID, client secret, refresh token, developer token and manager
-  ID when applicable. The refresh token must have the `adwords` scope and belong
-  to an authorized user, preferably with read-only Google Ads permissions.
-- `GOOGLE_ADS_ALLOWED_CUSTOMER_IDS`: approved comma-separated customer IDs. New
-  accounts in the CSV do not automatically expand live Ads permissions.
+| Variable | Value |
+| --- | --- |
+| `UPSTASH_REDIS_REST_URL` | The database HTTPS REST URL |
+| `UPSTASH_REDIS_REST_TOKEN` | The database REST token |
 
-Keep secrets out of `NEXT_PUBLIC_` variables. Do not set `CSV_LOCAL_PATH` on Vercel.
-Redeploy after changing environment variables.
+Redis stores dynamic MCP client registrations, browser login transactions,
+access tokens, refresh tokens, and rate-limit counters. Do not replace it with
+an in-memory store on Vercel.
 
-## 3. Set up sign-in
+## 3. Create the shared company login
 
-For hosted ChatGPT/Claude connectors, configure an external MCP-capable OAuth
-provider, such as **Auth0 Auth for MCP**. This app verifies tokens, not issues them.
+Set:
 
-1. Create an API/resource with its audience/identifier exactly equal to
-   `MCP_RESOURCE_URL`; define the permission `ads:read`.
-2. Enable the provider's MCP onboarding, authorization-code flow and PKCE. Support
-   CIMD and/or dynamic client registration as required by your clients. Follow
-   the provider's current MCP guide and restrict login to intended users.
-3. Set `OAUTH_ISSUER` to its exact issuer and `OAUTH_JWKS_URL` to its HTTPS public
-   signing-key endpoint. Use actual provider metadata, including trailing slashes.
-4. Set `OAUTH_ALLOWED_SUBJECTS` to approved users' `sub` IDs, comma separated.
-   Empty rejects everyone. Tokens must include the `ads:read` scope.
-5. Redeploy. `/.well-known/oauth-protected-resource` should show the issuer and
-   resource; unauthenticated `/api/mcp` requests must return 401.
+```dotenv
+MCP_AUTH_MODE=shared-login
+MCP_LOGIN_USERNAME=your-company-username
+```
 
-With Auth0, configure MCP resource/audience mapping (and its Default Audience when
-required by that integration), so the token audience matches the MCP resource,
-not userinfo. Real provider setup and a client login are required to verify OAuth.
-
-For clients supporting custom Authorization headers, an independent API key can
-be used instead. Generate one key per client with `openssl rand -hex 32` and set
-`MCP_API_KEYS_JSON` to an object such as:
-
-`{"jana-laptop":"REPLACE_WITH_GENERATED_KEY","other-client":"ANOTHER_KEY"}`
-
-Static keys do not replace OAuth for hosted clients that cannot accept headers.
-
-## 4. Upload each new CSV
-
-Create `.env.local` on your computer from `.env.example`, set the private Blob
-credential and `CSV_BLOB_PATH`, then run:
+Generate the password hash on a trusted computer from the repository directory:
 
 ```sh
 npm ci
-npm run csv:upload -- "/path/to/PPC Master Report - Budget.csv"
+npm run login:password
 ```
 
-Repeat after each CSV export. This validates and replaces the same private object.
-All connected clients read the new version on their next call. No redeploy needed.
-Changing the local file alone does not update the server; run the upload command
-or invoke it from your existing export workflow.
+Enter a strong password of at least 16 characters. Copy the printed
+`scrypt:...` value into `MCP_LOGIN_PASSWORD_HASH`. Store the plaintext password
+only in your company password manager. Colleagues use this username and
+password; they do not use a Google login.
 
-## 5. Connect any supported AI client
+## 4. Connect the one Google Ads account and Sheet
 
-| Client | How |
+The server owner must supply the Google credentials. Colleagues never see the
+refresh token.
+
+Set these variables:
+
+| Variable | Value |
 | --- | --- |
-| ChatGPT | Enable developer mode if available in your account/workspace. Current documentation puts it under Settings → Security and login. Add an MCP connection under Plugins using the production URL; complete OAuth. |
-| Claude remote connectors | Customize → Connectors → + → Add custom connector, enter the production URL, then complete OAuth. |
-| Other clients, including Chinese AI applications | Use their remote MCP / Streamable HTTP option with OAuth or a Bearer header. Support depends on the application and network, not the model name. |
-| Stdio-only desktop clients | Use an MCP bridge such as `mcp-remote` pointing at the same URL. |
+| `GOOGLE_ADS_CLIENT_ID` | Google Cloud OAuth web client ID |
+| `GOOGLE_ADS_CLIENT_SECRET` | Matching client secret |
+| `GOOGLE_ADS_REFRESH_TOKEN` | Server refresh token |
+| `GOOGLE_ADS_DEVELOPER_TOKEN` | Google Ads API developer token |
+| `GOOGLE_ADS_LOGIN_CUSTOMER_ID` | Manager ID, only when required |
+| `GOOGLE_ADS_ALLOWED_CUSTOMER_IDS` | The one Ads customer ID, digits only |
+| `GOOGLE_SHEETS_SPREADSHEET_ID` | ID from the Sheet URL |
+| `GOOGLE_SHEETS_BUDGET_RANGE` | For example `Budget!A1:D1000` |
 
-Claude Code HTTP configuration (other clients may use a different wrapper):
+The Google refresh token must include both scopes:
 
-```json
-{
-  "mcpServers": {
-    "google-ads-worksheet": {
-      "type": "http",
-      "url": "https://YOUR-PROJECT.vercel.app/api/mcp",
-      "headers": { "Authorization": "Bearer YOUR_CLIENT_KEY" }
-    }
-  }
-}
+```text
+https://www.googleapis.com/auth/adwords
+https://www.googleapis.com/auth/spreadsheets.readonly
 ```
 
-One deployment can serve multiple authorized AI accounts for the same business.
-For an unrelated organization, use separate deployment, storage and credentials.
+The Google account behind that token must have access to the Sheet and the
+Google Ads account. The Sheet range must contain a header row with
+`Account name`, `Customer ID`, and `Ad target spend`; `Comments` is optional.
+The customer ID must appear in both the Sheet and the
+`GOOGLE_ADS_ALLOWED_CUSTOMER_IDS` value.
 
-Set `MCP_TEST_URL` in `.env.local` to the deployed endpoint and run `npm run smoke`
-with a configured client key. Then query one real authorized account and compare
-with Google Ads for identical dates/time zone before considering integration done.
+The private Blob/CSV variables are optional legacy fallback settings. Leave
+`GOOGLE_SHEETS_SPREADSHEET_ID` unset only if you intentionally want to use the
+older CSV path.
 
-401: invalid/missing token. 403: insufficient scope or disallowed browser Origin.
-OAuth metadata 503: issuer/resource not configured. If Vercel Deployment Protection
-returns a login page, configure machine access for the intended deployment/client
-while retaining this app's mandatory MCP authentication.
+## 5. Deploy and verify
 
-Official references: [Vercel MCP](https://vercel.com/docs/mcp/deploy-mcp-servers-to-vercel),
-[private storage](https://vercel.com/docs/vercel-blob/private-storage),
-[Auth0 MCP](https://auth0.com/blog/auth0-auth-for-mcp-servers-generally-available/),
-[ChatGPT](https://developers.openai.com/plugins/deploy/connect-chatgpt),
-[Claude](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp).
+Redeploy after adding or changing variables. Check these URLs in a browser:
+
+- `/.well-known/oauth-protected-resource` returns the MCP resource and the
+  authorization server.
+- `/.well-known/oauth-authorization-server` returns the authorization and token
+  endpoints.
+- `/api/mcp` returns **401** when called without a bearer token.
+
+The MCP URL is ready when an AI client can complete the login page and list the
+worksheet accounts. Then run one known-date report and compare it with Google
+Ads using the account's time zone.
+
+## 6. Connect colleagues
+
+Send them only:
+
+- `https://YOUR-PROJECT.vercel.app/api/mcp`
+- the shared company username
+- the shared company password
+
+Use [COLLEAGUE-CONNECTION-GUIDE.md](COLLEAGUE-CONNECTION-GUIDE.md) for the
+ChatGPT and Claude clicks. Never send the Google refresh token, developer
+token, Redis token, or password hash.
+
+## Troubleshooting
+
+| Symptom | Check |
+| --- | --- |
+| Login page does not appear | `MCP_AUTH_MODE`, username, password hash, and `MCP_RESOURCE_URL` |
+| OAuth discovery is 503 | Redis variables or one of the shared-login variables is missing |
+| Client returns to the wrong page | The client must use the exact deployed `/api/mcp` URL and support OAuth PKCE |
+| `401` after connecting | The client token expired; reconnect, or check Redis availability |
+| Worksheet accounts fail | Sheet ID, range, headers, access, and the refresh-token Sheets scope |
+| Ads report fails | Developer token, manager ID, Ads account permission, allowlist, and Sheet customer ID |
+| Browser returns `403` | Add the exact browser origin to `MCP_ALLOWED_ORIGINS`; leave it blank for server-to-server clients |
+
+Rotate the shared password by generating a new hash and redeploying. Existing
+connections become invalid when the password hash changes.

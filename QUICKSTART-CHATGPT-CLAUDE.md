@@ -1,31 +1,48 @@
-# Connect this Google Ads MCP to ChatGPT or Claude
+# Connect the company Google Ads MCP to ChatGPT or Claude
 
-This is the short setup path for the **hosted** ChatGPT and Claude apps. Both need a deployed, HTTPS MCP server and an OAuth sign-in flow. The GitHub URL and a server running only on your laptop are not connection URLs.
+This is the short guide for colleagues. The administrator must finish the
+server setup first. You only need the deployed MCP URL and the shared company
+login.
 
-## Before connecting either app
+The MCP URL is:
 
-1. Deploy this repository to Vercel. Your MCP URL will look like `https://YOUR-PROJECT.vercel.app/api/mcp`.
-2. In the Vercel project, configure the Google Ads client ID, client secret, refresh token, developer token, and an allowed customer ID list. Connect a private Blob store and upload the budget CSV. The customer ID must appear in both the CSV and `GOOGLE_ADS_ALLOWED_CUSTOMER_IDS`.
-3. Set `MCP_RESOURCE_URL` to the **exact** HTTPS MCP URL. Configure an external MCP-compatible OAuth provider: set `OAUTH_ISSUER`, `OAUTH_JWKS_URL`, and `OAUTH_ALLOWED_SUBJECTS` in Vercel. The provider must issue signed JWT access tokens with the MCP URL as audience and `ads:read` scope, and support the client's authorization-code/PKCE registration and redirects. Redeploy after changing environment variables.
-4. Test `https://YOUR-PROJECT.vercel.app/.well-known/oauth-protected-resource` in a browser. It should return JSON with your MCP resource URL and OAuth issuer. An unauthenticated request to `/api/mcp` should return **401**. These checks do not prove that OAuth login or Google Ads access works.
+`https://google-ads-mcp-one.vercel.app/api/mcp`
 
-The server verifies OAuth tokens but does not provide a login page or authorization server. The Google refresh token is only for the server's connection to Google Ads; do not enter it in ChatGPT or Claude. See [VERCEL-GUIDE.md](VERCEL-GUIDE.md) for exact Vercel variables and CSV upload commands.
+Use that URL exactly. The GitHub repository URL is not an MCP connection URL.
 
 ## ChatGPT
 
-1. Open **Settings → Security and login** and enable **Developer mode**, if available for your account or workspace.
-2. Open **Plugins**, select **+**, enter a name such as **Google Ads MCP**, and enter your deployed URL ending in `/api/mcp`.
-3. Create the connection, complete the OAuth sign-in, and check that four read-only tools appear.
-4. In a new conversation, enable the connection and ask: **“List my worksheet accounts.”**
+1. Open ChatGPT **Settings** and enable **Developer mode** if it is available
+   for your account or workspace.
+2. Open the MCP / connector area and choose **Add connector** or **Add custom
+   MCP**.
+3. Paste the MCP URL above and choose **Connect**.
+4. On the company sign-in page, enter the shared username and password supplied
+   by your administrator.
+5. Enable the connection in a new chat and ask: **“List the worksheet
+   accounts.”**
 
-[OpenAI's connection guide](https://developers.openai.com/plugins/deploy/connect-chatgpt)
+## Claude
 
-## Claude (web or remote connector)
+1. Open **Customize → Connectors → + → Add custom connector**.
+2. Paste the same MCP URL and choose **Connect**.
+3. Enter the shared company username and password on the sign-in page.
+4. Enable the connector in your conversation and ask: **“List the worksheet
+   accounts.”**
 
-1. Open **Customize → Connectors → + → Add custom connector**. On Team or Enterprise, an owner first adds the URL under **Organization settings → Connectors**.
-2. Enter the same deployed `/api/mcp` URL, add the connector, and select **Connect** to complete OAuth.
-3. Enable it for your conversation and ask: **“List my worksheet accounts.”**
+On Claude Team or Enterprise, an organization owner may need to allow the
+connector first.
 
-[Claude's connection guide](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp)
+## Important
 
-If either app cannot connect, verify the HTTPS URL, OAuth provider discovery and token audience/scope first. **401** indicates missing or rejected credentials; **403** can mean a missing `ads:read` scope. If account listing works but an Ads report fails, check the Google Ads credentials, account access, CSV membership and allowlist. For a fuller local test and Claude Code instructions, see [CLIENT-SETUP.md](CLIENT-SETUP.md).
+- You do not sign in to Google or choose an Ads account. The administrator has
+  already connected the one company Google Ads account and one company Sheet.
+- The tools are read-only. They can read the configured Ads and Sheet data but
+  cannot edit campaigns or write to the Sheet.
+- Never enter a Google refresh token, Google developer token, or any other
+  server secret into ChatGPT or Claude.
+- If the connection fails, send the administrator the AI app name and exact
+  error message. Do not send passwords or access tokens.
+
+For setup of the server itself, see `VERCEL-GUIDE.md`. This page is only for
+people connecting an already configured deployment.

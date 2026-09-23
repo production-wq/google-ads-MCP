@@ -4,7 +4,7 @@ function required(key: string) {
   return value;
 }
 let cached: { token: string; until: number; key: string } | undefined;
-async function accessToken() {
+export async function accessToken() {
   const client = required('GOOGLE_ADS_CLIENT_ID');
   const refresh = required('GOOGLE_ADS_REFRESH_TOKEN');
   if (cached && cached.until > Date.now() && cached.key === client + refresh) return cached.token;
