@@ -7,6 +7,7 @@ import { generateKeyPair, exportJWK, SignJWT } from 'jose';
 import { loadBudget } from '../lib/csv';
 import { accountReport } from '../lib/google-ads';
 import { verifyToken } from '../lib/auth';
+import { authenticatedHandler } from '../lib/mcp';
 
 test('CSV is reloaded after replacement, without restarting', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'ads-csv-test-'));
@@ -65,8 +66,8 @@ test('OAuth verifies signatures, audience, expiry and approved subjects', async 
   const { privateKey, publicKey } = await generateKeyPair('RS256');
   const jwk = await exportJWK(publicKey);
   globalThis.fetch = async () => Response.json({ keys: [{ ...jwk, kid: 'test', alg: 'RS256' }] });
-  async function token(sub = 'approved-user', aud = audience, exp = Math.floor(Date.now() / 1000) + 60) {
-    return new SignJWT({ scope: 'ads:read' }).setProtectedHeader({ alg: 'RS256', kid: 'test' })
+  async function token(sub = 'approved-user', aud = audience, exp = Math.floor(Date.now() / 1000) + 60, scope = 'ads:read') {
+    return new SignJWT({ scope }).setProtectedHeader({ alg: 'RS256', kid: 'test' })
       .setIssuer(issuer).setAudience(aud).setSubject(sub).setExpirationTime(exp).sign(privateKey);
   }
   try {
@@ -76,6 +77,13 @@ test('OAuth verifies signatures, audience, expiry and approved subjects', async 
     assert.equal(await verifyToken(request, await token('approved-user', 'wrong-audience')), undefined);
     assert.equal(await verifyToken(request, await token('approved-user', audience, 1)), undefined);
     assert.equal(await verifyToken(request, (await token()).slice(0, -5) + 'xxxxx'), undefined);
+    const noScope = await token('approved-user', audience, Math.floor(Date.now() / 1000) + 60, 'other:read');
+    const forbidden = await authenticatedHandler(new Request(audience, {
+      method: 'POST', headers: { Authorization: `Bearer ${noScope}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} }),
+    }));
+    assert.equal(forbidden.status, 403);
+    assert.match(forbidden.headers.get('WWW-Authenticate')!, /insufficient_scope/);
   } finally {
     globalThis.fetch = priorFetch;
     keys.forEach((k, i) => { if (saved[i] === undefined) delete process.env[k]; else process.env[k] = saved[i]; });

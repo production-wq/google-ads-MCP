@@ -11,9 +11,10 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/*.test.ts",
-    "csv:upload": "tsx --env-file=.env.local scripts/upload-csv.ts",
-    "smoke": "tsx --env-file=.env.local scripts/smoke.ts"
+    "test": "node --import tsx --test tests/*.test.ts",
+    "csv:upload": "node --env-file=.env.local --import tsx scripts/upload-csv.ts",
+    "smoke": "node --env-file=.env.local --import tsx scripts/smoke.ts",
+    "login:password": "node --import tsx scripts/hash-password.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/server": "2.1.0",

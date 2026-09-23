@@ -1,3 +1,4 @@
+import { sheetBudgetCsv } from './google-sheet';
 import { parse } from 'csv-parse/sync';
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
@@ -41,7 +42,9 @@ export function parseBudget(text: string) {
 
 export async function loadBudget() {
   let text: string;
-  if (process.env.CSV_LOCAL_PATH && !process.env.VERCEL) {
+  if (process.env.GOOGLE_SHEETS_SPREADSHEET_ID) {
+    text = await sheetBudgetCsv();
+  } else if (process.env.CSV_LOCAL_PATH && !process.env.VERCEL) {
     text = await readFile(process.env.CSV_LOCAL_PATH, 'utf8');
   } else {
     const blob = await get(process.env.CSV_BLOB_PATH || 'worksheets/budget.csv', {
