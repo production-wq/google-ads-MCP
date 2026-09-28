@@ -1,6 +1,6 @@
 {
   "name": "google-ads-worksheet-mcp",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -12,6 +12,9 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts",
+    "setup:check": "tsx --env-file=.env.local scripts/setup-check.ts",
+    "google:token": "tsx --env-file=.env.local scripts/get-google-token.ts",
+    "user:hash": "tsx scripts/hash-password.ts",
     "csv:upload": "tsx --env-file=.env.local scripts/upload-csv.ts",
     "smoke": "tsx --env-file=.env.local scripts/smoke.ts"
   },

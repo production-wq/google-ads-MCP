@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseBudget, assertVersion, authorizedAccount } from '../lib/csv';
+import { parseBudget, parseAccountRows, assertVersion, authorizedAccount } from '../lib/csv';
 import { validateDates, validateQuery } from '../lib/google-ads';
 import { verifyToken } from '../lib/auth';
 
@@ -16,9 +16,33 @@ test('real template preamble, multiline notes, numeric zero, missing budgets and
   assert.notEqual(data.version, parseBudget(csv.replace('$0', '$10')).version);
   assert.throws(() => assertVersion(data.version, 'old'));
 });
-test('invalid replacement and duplicate IDs rejected', () => {
+test('a missing header is fatal; duplicate and unusable rows are reported, not fatal', () => {
   assert.throws(() => parseBudget('wrong,header\nx,y'));
-  assert.throws(() => parseBudget(csv + 'Duplicate,1234567890,$5,\n'));
+  // A living sheet accumulates repeats and note rows. Report them and keep serving.
+  const withDupe = parseBudget(csv + 'Duplicate,123-456-7890,$5,\n');
+  assert.equal(withDupe.accounts.length, 4);
+  assert.deepEqual(withDupe.duplicates.map(d => d.customer_id), ['1234567890']);
+  const withJunk = parseBudget(csv + 'Subtotal,n/a,$999,\n');
+  assert.equal(withJunk.accounts.length, 4);
+  assert.deepEqual(withJunk.skipped.map(r => r.value), ['n/a']);
+});
+
+test('the real sheet column names are recognised, including CID and PPC Target', () => {
+  const sheet = [
+    ['MTD: 2026-09-01 to 2026-09-27  |  Updated: 2026-09-28'],
+    ['Audit Date', 'Account Name', 'CID', 'PPC Status', 'PPC Target (Zoho)', 'Budget Notes (shared budgets: $/day and campaigns)'],
+    ['2026-09-28', 'Oasis Showers', '917-647-6817', 'Active', '$1,000', 'shared with roofing'],
+    ['2026-09-28', 'Big Lick Roofing', '783-029-8303', 'Paused', 'N/A', ''],
+  ];
+  const parsed = parseAccountRows(sheet);
+  assert.equal(parsed.accounts.length, 2);
+  assert.equal(parsed.accounts[0].customer_id, '9176476817');
+  assert.equal(parsed.accounts[0].target_spend, 1000);
+  assert.equal(parsed.accounts[0].status, 'Active');
+  assert.equal(parsed.accounts[0].comments, 'shared with roofing');
+  assert.equal(parsed.accounts[1].target_spend, null);
+  assert.equal(parsed.columns.id, 'CID');
+  assert.equal(parsed.columns.target, 'PPC Target (Zoho)');
 });
 test('Google account must be in CSV and deployment allowlist', () => {
   const prior = process.env.GOOGLE_ADS_ALLOWED_CUSTOMER_IDS;
