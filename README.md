@@ -101,9 +101,18 @@ Remove a user from the variable and their tokens stop working on the next call.
 Rotate `SESSION_SECRET` to sign everyone out.
 
 Machine clients can use `MCP_API_KEYS_JSON` instead — a plain string value is
-read-only, `{"ci":{"key":"…","role":"write"}}` may write. An external OAuth
-provider is still supported for hosted connectors that require one; see
-[VERCEL-GUIDE.md](VERCEL-GUIDE.md). Anonymous requests fail closed.
+read-only, `{"ci":{"key":"…","role":"write"}}` may write. Anonymous requests fail
+closed.
+
+Hosted connectors that only speak OAuth are served by the app itself: it is a
+small OAuth 2.1 authorization server with dynamic client registration, PKCE and
+refresh tokens, at `/oauth/register`, `/oauth/authorize` and `/oauth/token`. A
+client registers itself, the user signs in with the same username and password,
+and the role decides the scopes — so Claude Desktop's Connectors screen,
+claude.ai and ChatGPT all work without a second user list or an external service.
+Like the confirmations, it stores nothing: client IDs, authorization codes and
+refresh tokens are signed values. Set `OAUTH_ISSUER` only to hand sign-in to an
+external provider instead.
 
 ## The master sheet
 

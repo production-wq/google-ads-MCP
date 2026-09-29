@@ -90,13 +90,23 @@ Each person signs in at `/login` and gets their token plus a config block.
 }
 ```
 
-Some hosted connectors only speak OAuth and cannot send a static header. For
-those, configure an external MCP-capable OAuth provider (for example Auth0 Auth
-for MCP): create an API whose audience equals `MCP_RESOURCE_URL`, define the
-`ads:read` permission, enable the authorization-code flow with PKCE, then set
-`OAUTH_ISSUER`, `OAUTH_JWKS_URL` and `OAUTH_ALLOWED_SUBJECTS`. This app verifies
-tokens; it does not issue them. Tokens from that provider carry `ads:read` only,
-so OAuth users are read-only unless you also grant `ads:write` in the provider.
+Hosted connectors cannot send a static header; they use OAuth. This app is its
+own OAuth 2.1 authorization server, so they work with no extra service: paste the
+production URL into the connector, and the client registers itself, opens this
+app's own sign-in page, and the user enters the same username and password.
+Roles carry across — a `read` user gets `ads:read`, a `write` user also gets
+`ads:write` — so there is no second user list to maintain.
+
+Nothing is stored for this. Registered clients, authorization codes and refresh
+tokens are all signed, expiring values verified with `SESSION_SECRET`. Two
+consequences worth knowing: rotating `SESSION_SECRET` invalidates every
+registration and token at once, and an authorization code cannot be marked used,
+so it is protected by a 60-second lifetime and PKCE rather than single use.
+
+To delegate sign-in to an external provider instead (Auth0 and similar), set
+`OAUTH_ISSUER`, `OAUTH_JWKS_URL` and `OAUTH_ALLOWED_SUBJECTS`; the built-in
+server then steps aside. That means maintaining users in both places, so prefer
+the built-in one unless you need SSO.
 
 ## 5. Day-to-day
 

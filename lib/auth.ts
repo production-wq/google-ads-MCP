@@ -60,12 +60,14 @@ export function sessionTtlSeconds() {
   return (Number.isFinite(hours) && hours > 0 && hours <= 8760 ? hours : 720) * 3600;
 }
 /** Signed, self-contained session token. Revoke by rotating SESSION_SECRET or removing the user. */
-export async function issueSession(username: string, role: Role) {
+export async function issueSession(username: string, role: Role, grantedScope?: string) {
   const expiresAt = Math.floor(Date.now() / 1000) + sessionTtlSeconds();
-  const token = await new SignJWT({ role, scope: SCOPES[role].join(' ') })
+  // An OAuth grant may be narrower than the role allows; never wider.
+  const scope = (grantedScope ? grantedScope.split(/\s+/).filter(s => SCOPES[role].includes(s)) : SCOPES[role]);
+  const token = await new SignJWT({ role, scope: (scope.length ? scope : ['ads:read']).join(' ') })
     .setProtectedHeader({ alg: 'HS256' }).setIssuer(SESSION_ISSUER).setAudience(SESSION_AUDIENCE)
     .setSubject(username).setIssuedAt().setExpirationTime(expiresAt).sign(sessionSecret());
-  return { token, expires_at: new Date(expiresAt * 1000).toISOString() };
+  return { token, expires_at: new Date(expiresAt * 1000).toISOString(), scope: (scope.length ? scope : ['ads:read']).join(' ') };
 }
 
 /** Verifies a username and password against the env-var user list. */
@@ -112,7 +114,12 @@ export async function verifyToken(_request: Request, token?: string): Promise<Au
         });
         // A session is only as current as the user list: a removed user stops working.
         const user = payload.sub ? loadUsers()[payload.sub] : undefined;
-        if (user) return { token, clientId: String(payload.sub), scopes: SCOPES[user.role], expiresAt: payload.exp };
+        if (user) {
+          // The narrower of what the token was granted and what the role allows today.
+          const claimed = typeof payload.scope === 'string' ? payload.scope.split(/\s+/).filter(Boolean) : SCOPES[user.role];
+          const scopes = SCOPES[user.role].filter(s => claimed.includes(s));
+          return { token, clientId: String(payload.sub), scopes, expiresAt: payload.exp };
+        }
       } catch { /* fall through to the external issuer */ }
     }
 
