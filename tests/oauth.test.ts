@@ -6,6 +6,7 @@ import { POST as register } from '../app/oauth/register/route';
 import { GET as authorizeGet, POST as authorizePost } from '../app/oauth/authorize/route';
 import { POST as token } from '../app/oauth/token/route';
 import { GET as asMetadata } from '../app/.well-known/oauth-authorization-server/route';
+import { originAllowed } from '../lib/http';
 
 const ORIGIN = 'https://mcp.example.test';
 const REDIRECT = 'http://localhost:33418/callback';
@@ -160,4 +161,20 @@ test('a registration cannot smuggle in a non-local http redirect', async () => {
     assert.equal(r.status, 400);
     assert.match((await json(r)).error_description, /https/);
   });
+});
+
+test('an Origin header does not block a hosted connector unless an allowlist is set', async () => {
+  const prior = process.env.MCP_ALLOWED_ORIGINS;
+  try {
+    // Empty allowlist: accept anyone. This is what Claude's and ChatGPT's clouds need.
+    delete process.env.MCP_ALLOWED_ORIGINS;
+    assert.equal(originAllowed('https://claude.ai'), true);
+    assert.equal(originAllowed('https://chatgpt.com'), true);
+    assert.equal(originAllowed(null), true);
+    // Set it and it restricts browser callers again.
+    process.env.MCP_ALLOWED_ORIGINS = 'https://claude.ai';
+    assert.equal(originAllowed('https://claude.ai'), true);
+    assert.equal(originAllowed('https://evil.test'), false);
+    assert.equal(originAllowed(null), true);
+  } finally { if (prior === undefined) delete process.env.MCP_ALLOWED_ORIGINS; else process.env.MCP_ALLOWED_ORIGINS = prior; }
 });
