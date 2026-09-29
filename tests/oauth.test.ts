@@ -104,6 +104,20 @@ test('a client registers, a user signs in, and the code exchanges for a usable t
   });
 });
 
+test('a write user keeps ads:write even when the client asks only for ads:read', async () => {
+  await withEnv(async () => {
+    const client_id = await newClient();
+    const { verifier, challenge } = pkce();
+    // The endpoint's 401 challenge advertises ads:read, so this is what clients send.
+    const redirected = await signIn(client_id, challenge, 'writer', { scope: 'ads:read' });
+    const code = new URL(redirected.headers.get('location')!).searchParams.get('code')!;
+    const granted = await json(await token(new Request(`${ORIGIN}/oauth/token`, { method: 'POST',
+      body: new URLSearchParams({ grant_type: 'authorization_code', code, code_verifier: verifier }) })));
+    assert.equal(granted.scope, 'ads:read ads:write');
+    assert.deepEqual((await verifyToken(new Request(`${ORIGIN}/api/mcp`), granted.access_token))?.scopes, SCOPES.write);
+  });
+});
+
 test('a read-only user cannot obtain the write scope', async () => {
   await withEnv(async () => {
     const client_id = await newClient();

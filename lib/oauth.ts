@@ -96,12 +96,19 @@ export function checkPkce(verifier: string, challenge: string) {
   if (a.length !== b.length || !timingSafeEqual(a, b)) throw new SafeError('code_verifier does not match the code_challenge.');
 }
 
-/** Grant only the scopes the user's role actually allows, silently narrowing the rest. */
-export function grantedScopes(requested: string | null, role: Role) {
-  const allowed = SCOPES[role];
-  const asked = (requested || '').split(/[\s+]+/).filter(Boolean);
-  const granted = asked.length ? allowed.filter(s => asked.includes(s)) : allowed;
-  return (granted.length ? granted : ['ads:read']).join(' ');
+/**
+ * The user's role is the authority, so a sign-in grants exactly what that role
+ * allows. A narrower `scope` on the request is not honoured, deliberately: the
+ * endpoint's 401 challenge advertises `ads:read` as its requirement, so clients
+ * ask for `ads:read` alone, and honouring that would leave every write user
+ * holding a read-only token. RFC 6749 section 3.3 permits granting a different
+ * scope than requested; the token response reports what was actually granted.
+ *
+ * The role remains a ceiling: a read user never receives ads:write, whatever
+ * the request asks for.
+ */
+export function grantedScopes(_requested: string | null, role: Role) {
+  return SCOPES[role].join(' ');
 }
 
 export async function issueCode(input: {

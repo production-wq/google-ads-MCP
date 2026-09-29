@@ -58,10 +58,12 @@ export async function POST(request: Request) {
       const previous = await readRefresh(body.refresh_token);
       const user = loadUsers()[previous.user];
       if (!user) return fail('invalid_grant', 'That account no longer exists.');
-      const session = await issueSession(previous.user, user.role, previous.scope);
+      // Scopes come from the role as it stands now, so a promotion to write takes
+      // effect on the next refresh and a demotion likewise, without reconnecting.
+      const session = await issueSession(previous.user, user.role);
       return Response.json({
         access_token: session.token, token_type: 'Bearer', expires_in: sessionTtlSeconds(),
-        refresh_token: await issueRefresh(previous.user, previous.client_id, previous.scope),
+        refresh_token: await issueRefresh(previous.user, previous.client_id, session.scope),
         scope: session.scope,
       }, { headers: cors });
     }
